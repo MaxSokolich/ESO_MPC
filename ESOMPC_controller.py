@@ -9,7 +9,7 @@ from scipy.interpolate import CubicSpline
 N = 30  # Time horizon
 f_max = 10
 a_0 = 1
-dt = 0.01
+dt = 0.8
 Q = np.diag([10, 10])  # Weight matrix
 R = np.diag([1, 1])  # Penalty matrix
 
@@ -44,6 +44,9 @@ def dynamic_model(freq, alpha, PosX, PosY, dt, a_0):
 
     return PosX_next,  PosY_next
 
+
+
+
 def generate_waypoints(start, target, N):
     """Generate interpolated waypoints from start to target using a curve fitting to accommodate curves"""
     t = np.linspace(0, 1, N)  # Normalized time steps
@@ -62,6 +65,8 @@ def generate_waypoints(start, target, N):
     #return waypoints
 
 
+
+
 def cost_func(Q, R, N, waypoints, X, u):
     """Compute cost function to minimize tracking error to waypoints."""
     cost = 0
@@ -70,13 +75,15 @@ def cost_func(Q, R, N, waypoints, X, u):
         cost += ca.mtimes([traj_error.T, Q, traj_error]) + ca.mtimes([u[:, k].T, R, u[:, k]])
     return cost
 
-def solve_mpc(X_current, X_desired, Q, R, N, dt, a_0, f_max):
+
+
+def solve_mpc(X_current, X_desired):
     """Solves the MPC problem with ESO-estimated states."""
     opti = ca.Opti()
 
     # Decision variables
     u = opti.variable(2, N)  # [freq, alpha] for each step
-    X = opti.variable(4, N + 1)  # [PosX, D_x, PosY, D_y] for each step
+    X = opti.variable(2, N + 1)  # [PosX, D_x, PosY, D_y] for each step
 
     waypoints = generate_waypoints(X_current[:2], X_desired.reshape(2), N)
 
@@ -86,15 +93,15 @@ def solve_mpc(X_current, X_desired, Q, R, N, dt, a_0, f_max):
     # Constraints
     for i in range(N):
         # Dynamics constraints
-        PosX_next = X[0, i] + (a_0 * u[0, i] * ca.cos(u[1, i])  + X[1,i]) * dt
-        PosY_next = X[2, i] + (a_0 * u[0, i] * ca.sin(u[1, i])  +  X[3,i])* dt
-        D_x_next = X[1, i]  # Disturbance assumed constant
-        D_y_next = X[3, i]
+        PosX_next = X[0, i] + (a_0 * u[0, i] * ca.cos(u[1, i]) ) * dt
+        PosY_next = X[1, i] + (a_0 * u[0, i] * ca.sin(u[1, i]) )* dt
+         # Disturbance assumed constant
+        
 
         opti.subject_to(X[0, i + 1] == PosX_next)
-        opti.subject_to(X[2, i + 1] == PosY_next)
-        opti.subject_to(X[1, i + 1] == D_x_next)
-        opti.subject_to(X[3, i + 1] == D_y_next)
+        opti.subject_to(X[1, i + 1] == PosY_next)
+        #opti.subject_to(X[1, i + 1] == D_x_next)
+        #opti.subject_to(X[3, i + 1] == D_y_next)
 
         # Control constraints
         opti.subject_to(0 <= u[0, i])  # freq >= 0
@@ -114,4 +121,8 @@ def solve_mpc(X_current, X_desired, Q, R, N, dt, a_0, f_max):
 
     return solution.value(u[0, 0]), solution.value(u[1, 0])  # Return first control input (freq, alpha)
 
+X_current = np.array([500 ,1000])
+X_desired = np.array([1000,1000])
+
+print(solve_mpc(X_current, X_desired))
 

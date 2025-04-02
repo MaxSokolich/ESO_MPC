@@ -84,7 +84,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         elif "Windows" in platform.platform():
             self.tbprint("Detected OS:  Windows")
-            PORT = "COM4"
+            PORT = "COM3"
         else:
             self.tbprint("undetected operating system")
             PORT = None
@@ -325,7 +325,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def update_image(self, frame):
         """Updates the image_label with a new opencv image"""
- 
+        cv2.circle(frame,(1000,1000),20,(0,0,0), -1,)
+
+
         frame = self.handle_zoom(frame)
     
         self.currentframe = frame
@@ -421,10 +423,10 @@ class MainWindow(QtWidgets.QMainWindow):
     def setFile(self):
         if self.videopath == 0:
             try:
-                self.cap  = cv2.VideoCapture(0)
-                #self.cap  = EasyPySpin.VideoCapture(0)
-                #self.cap.set(cv2.CAP_PROP_AUTO_WB, True)
-                #self.cap.set(cv2.CAP_PROP_FPS, 30)
+                #self.cap  = cv2.VideoCapture(0)
+                self.cap  = EasyPySpin.VideoCapture(0)
+                self.cap.set(cv2.CAP_PROP_AUTO_WB, True)
+                self.cap.set(cv2.CAP_PROP_FPS, 30)
                 #self.cap.set(cv2.CAP_PROP_FPS, 30)
             except Exception:
                 self.cap  = cv2.VideoCapture(0) 
