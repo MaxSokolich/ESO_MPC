@@ -152,11 +152,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.ui.apply_button.isChecked():
             
             #data from algorithm class
-            Bx, By, Bz, alpha, gamma, freq, psi, gradient, acoustic_freq = self.algorithm.run(robot_list)
-            self.arduino.send(Bx, By, Bz, alpha, gamma, freq, psi, gradient, acoustic_freq)
+            Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq = self.algorithm.run(robot_list)
+            self.arduino.send(Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq)
+           
         else:
-            Bx, By, Bz, alpha, gamma, freq, psi, gradient, acoustic_freq = 0,0,0,0,0,0,0,0,0
-            self.arduino.send(Bx, By, Bz, alpha, gamma, freq, psi, gradient, acoustic_freq)
+            Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq = 0,0,0,0,0,0,0,0,0,0
+            self.arduino.send(Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq)
 
 
 
@@ -426,7 +427,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 #self.cap  = cv2.VideoCapture(0)
                 self.cap  = EasyPySpin.VideoCapture(0)
                 self.cap.set(cv2.CAP_PROP_AUTO_WB, True)
-                self.cap.set(cv2.CAP_PROP_FPS, 30)
+                self.cap.set(cv2.CAP_PROP_FPS, 10)
                 #self.cap.set(cv2.CAP_PROP_FPS, 30)
             except Exception:
                 self.cap  = cv2.VideoCapture(0) 

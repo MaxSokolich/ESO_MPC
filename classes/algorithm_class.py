@@ -1,6 +1,8 @@
 
-from ESOMPC_controller import solve_mpc
+from ESO_MPCcontroller import solve_mpc
 import numpy as np
+import time as time
+
 
 class algorithm:
     def __init__(self):
@@ -23,28 +25,79 @@ class algorithm:
         #middle: algorithm
         
         
-        X_current = np.array([pos_x, pos_y])
-        print(X_current)
+        X_current = np.array([int(pos_x), int(pos_y)])
+    
         X_desired = np.array([1000,1000])
         
-        freq, alpha = solve_mpc(X_current, X_desired)
+        start = time.time()
+        freq, alpha = solve_mpc(X_current, X_desired) #freq in Hz and alpha in radians
         
-        alpha = alpha - np.pi/2
-        print(freq, alpha)
+        print(time.time()-start)
+   
+
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         
         
         
         #output: actions which is the magetnic field commands applied to the arduino
 
-        Bx = 1 #-1 -> 1
+        Bx = 0 #-1 -> 1
         By = 0 #-1 -> 1
         Bz = 0 #-1 -> 1
-        alpha = alpha #0 -> 360 deg
-        gamma = 90 #0 -> 180 deg
+        alpha = alpha - np.pi/2 #0 -> 360 deg must be in radian
+        gamma = np.radians(90) #0 -> 180 deg. must be in radian
         freq = freq #0 -> 180 Hz
-        psi = 0 #0 -> 90 deg
-        gradient = 1 # gradient has to be 1 for the gradient thing to work
+        psi = np.radians(90) #0 -> 90 deg must be in radian. Must not be zero. DONT touch this
+        gradient = 0 # gradient has to be 1 for the gradient thing to work
+        equal_field = 0
         acoustic_freq = 0
         
+        print("freq = {}, alpha ={}".format(freq, alpha))
         
-        return Bx, By, Bz, alpha, gamma, freq, psi, gradient, acoustic_freq
+        return Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq
