@@ -84,7 +84,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         elif "Windows" in platform.platform():
             self.tbprint("Detected OS:  Windows")
-            PORT = "COM3"
+            PORT = "COM4"
         else:
             self.tbprint("undetected operating system")
             PORT = None
@@ -146,13 +146,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     
-    def update_actions(self, robot_list):
+    def update_actions(self, frame, robot_list):
        
 
         if self.ui.apply_button.isChecked():
             
             #data from algorithm class
-            Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq = self.algorithm.run(robot_list)
+            frame, Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq = self.algorithm.run(frame,robot_list)
             self.arduino.send(Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq)
            
         else:
@@ -188,7 +188,41 @@ class MainWindow(QtWidgets.QMainWindow):
         if self.save_status == True:
             for (sheet, bot) in zip(self.robot_params_sheets,self.robots):
                 sheet.append(bot[:-1])
+
+
+        """Updates the image_label with a new opencv image"""
+
+
+        frame = self.handle_zoom(frame)
+    
+        self.currentframe = frame
+        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb_image.shape
       
+        bytes_per_line = ch * w
+        convert_to_Qt_format = QtGui.QImage(rgb_image.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
+        p = convert_to_Qt_format.scaled(self.display_width, self.display_height, Qt.KeepAspectRatio)
+        qt_img = QPixmap.fromImage(p)
+       
+        #update frame slider too
+        self.ui.framelabel.setText("Frame:"+str(self.frame_number))
+        if self.videopath !=0:
+            self.ui.frameslider.setValue(self.tracker.framenum)
+        
+        #also update robot info
+        if len(self.robots) > 0:
+            robot_diameter = round(np.sqrt(4*self.robots[-1][8]/np.pi),1)
+            self.ui.vellcdnum.display(int(self.robots[-1][6]))
+            self.ui.blurlcdnum.display(int(self.robots[-1][7]))
+            self.ui.sizelcdnum.display(robot_diameter)
+                
+       
+        self.ui.VideoFeedLabel.setPixmap(qt_img)
+      
+
+
+
+
 
 
 
@@ -501,9 +535,9 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.setFile()
                 
                 self.tracker = VideoThread(self)
-                self.tracker.change_pixmap_signal.connect(self.update_image)
+            
                 self.tracker.cropped_frame_signal.connect(self.update_croppedimage)
-                self.tracker.robot_list_signal.connect(self.update_actions)
+                self.tracker.actions_signal.connect(self.update_actions)
                 self.tracker.start()
 
                 self.ui.trackbutton.setText("Stop")

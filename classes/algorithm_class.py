@@ -1,7 +1,9 @@
+import cv2
+from classes.ESOMPC_controller import solve_mpc
 
-from ESO_MPCcontroller import solve_mpc
 import numpy as np
 import time as time
+
 
 
 class algorithm:
@@ -9,7 +11,7 @@ class algorithm:
         pass
         
 
-    def run(self, robot_list):
+    def run(self, frame, robot_list):
         """
         input: data about robot. eg, velocity or position
         output: magnetic field action commands
@@ -20,6 +22,10 @@ class algorithm:
 
         pos_x = robot_list[-1].position_list[-1][0]
         pos_y = robot_list[-1].position_list[-1][1]
+
+        print("robots position = ", (pos_x,pos_y))
+
+        
       
         
         #middle: algorithm
@@ -28,10 +34,15 @@ class algorithm:
         X_current = np.array([int(pos_x), int(pos_y)])
     
         X_desired = np.array([1000,1000])
+        cv2.circle(frame,(X_desired[0],X_desired[1]),15,(0,0,0), -1,)
         
         start = time.time()
-        freq, alpha = solve_mpc(X_current, X_desired) #freq in Hz and alpha in radians
-        
+        frame, freq, alpha = solve_mpc(frame, X_current, X_desired) #freq in Hz and alpha in radians
+        #X_current = update_position(X_current,freq,alpha)
+        #best_u = mpc_control(X_current)
+        #alpha = best_u[0]
+        #freq = best_u[1]
+
         print(time.time()-start)
    
 
@@ -100,4 +111,4 @@ class algorithm:
         
         print("freq = {}, alpha ={}".format(freq, alpha))
         
-        return Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq
+        return frame, Bx, By, Bz, alpha, gamma, freq, psi, gradient, equal_field, acoustic_freq
