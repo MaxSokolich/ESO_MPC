@@ -1,19 +1,24 @@
 #ESO-MPC Combined
 
+#WORKING
 import numpy as np
 import casadi as ca
 from scipy.interpolate import CubicSpline
 import matplotlib.pyplot as plt
 import time as time
+import cv2
 
-N = 4  # Time horizon
-f_max = 10
+N = 10  # Time horizon
+f_max = 3
 a_0 = 1
 dt = 0.04
-Q = np.diag([20, 20])  # Weight matrix
+Q = np.diag([30, 30])  # Weight matrix
 R = np.diag([10, 10])  # Penalty matrix
-zeta = np.array([3, 1, 3, 1]) 
+zeta = np.array([8, 2, 8, 2]) 
 
+target_points = None    # List of (x, y) tuples representing your multi-target sequence.
+full_traj = None        # Full reference trajectory: a 2 x T numpy array.
+current_traj_index = 0
 
 def eso(X_hat, PosX, PosY,freq,alpha):
     """Extended State Observer (ESO) for disturbance estimation."""
@@ -45,7 +50,7 @@ def dynamic_model(freq, alpha, PosX, PosY):
 
 def generate_waypoints(start, target, N):
     """Generate interpolated waypoints from start to target using spline curve"""
-
+    #targets = np.array(target)
     t = np.linspace(0, 1, N)  
     x = np.linspace(start[0], target[0], N)  
     y = np.linspace(start[1], target[1], N)  
@@ -56,45 +61,70 @@ def generate_waypoints(start, target, N):
     traj_points  = np.vstack((cs_x(t), cs_y(t)))
 
     return traj_points
-    
+'''
 
+def generate_waypoints_multisegment(points, M_per_segment):
+    """Generate a continuous trajectory through multiple target points.
+       'points' is a list of (x, y) tuples.
+       Returns a 2 x (M_per_segment*(n-1) - (n-2)) array of waypoints."""
+    segments = []
+    for i in range(len(points) - 1):
+        seg = generate_waypoints(points[i], points[i+1], M_per_segment)
+        # Remove overlapping points between segments (except for the first segment)
+        if i > 0:
+            seg = seg[:, 1:]
+        segments.append(seg)
+    full_trajectory = np.hstack(segments)
+    return full_trajectory
+'''
 def cost_func(waypoints, X, u):
     """Compute cost function to minimize tracking error to waypoints."""
     #cost = Q||current position(t) - way point position(t+1)||^2+||u(t|t-1)||^2.R 
     cost = 0
+    
     for k in range(N):
         traj_error = X[:2, k] - waypoints[:, k]  # Position error to waypoint
-        cost += ca.mtimes([traj_error.T, Q, traj_error]) + ca.mtimes([u[:, k].T, R, u[:, k]])
+        if k ==0:
+            control_error = ca.DM.zeros(2, 1)
+        else:
+            control_error = u[:,k] - u[:,k-1]
+        cost += ca.mtimes([traj_error.T, Q, traj_error]) + ca.mtimes([control_error.T, R, control_error])
     return cost
 
-def solve_mpc(X_current, X_desired):
+def solve_mpc(frame,X_current, X_desired):
     """Solves the MPC problem with ESO-estimated states."""
+    global target_points, full_traj, current_traj_index
+
     opti = ca.Opti()
 
     # Decision variables
     u = opti.variable(2, N)  # [freq, alpha] for each step
     X = opti.variable(2, N + 1)  # [PosX, PosY] for each step
     X_known = X_current
-    X_known = np.array([X_known[0],0.0,X_known[1],0.0])
-    X_known = eso(X_known, X_known[0],X_known[2],1,0)
-    if len(X_known) == 2:
-        X_known = np.array([X_known[0], 0.0, X_known[1], 0.0])
-
     start = np.array([X_known[0], X_known[2]]) 
-    target = X_desired[:,]               
-    if target.shape[0] != 2:
-        raise ValueError(f"Expected 2D target, got shape {target.shape} with data: {target}")
-    waypoints = generate_waypoints(start, target, N+1)
+    target = X_desired[:]               
+    #if target_points is None:
+    #    target_points = []
+     #   full_traj = generate_waypoints_multisegment(target_points, M_per_segment=20)
+     #   current_traj_index = 0
+    waypoints = generate_waypoints( start,target, N+1)
+    #waypoints = full_traj[:, current_traj_index : current_traj_index + N + 1]
+
+    for i in range(waypoints.shape[1]):
+        x = waypoints[0, i]
+        y = waypoints[1, i]
+        cv2.circle(frame, (int(x), int(y)), radius=10, color=(0, 0, 255), thickness=-1)  # red filled circle
 
     # Initial condition constraint
     initial_pos = ca.vertcat(X_known[0], X_known[2])  # Extract positions only
     opti.subject_to(X[:, 0] == initial_pos)
 
+
     # Constraints
     for i in range(N):
 
         PosX_next = X[0, i] + (a_0 * u[0, i] * ca.cos(u[1, i]) +  X_known[1]) * dt
-        PosY_next = X[1, i] + (a_0 * u[0, i] * ca.sin(u[1, i]) + X_known[3] )* dt
+        PosY_next = X[1, i] + (a_0 * u[0, i] * (- ca.sin(u[1, i])) + X_known[3] )* dt
           
         opti.subject_to(X[0, i + 1] == PosX_next)
         opti.subject_to(X[1, i + 1] == PosY_next)
@@ -122,8 +152,8 @@ def solve_mpc(X_current, X_desired):
 
     freq_value = round(solution.value(u[0, 0]), 2)
     alpha_value = solution.value(u[1, 0])
-
-    return freq_value, alpha_value  # control inputs (freq, alpha)
+ 
+    return frame,freq_value, alpha_value  # control inputs (freq, alpha)
 
 '''
 

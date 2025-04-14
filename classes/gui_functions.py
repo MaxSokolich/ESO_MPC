@@ -310,8 +310,11 @@ class MainWindow(QtWidgets.QMainWindow):
                         robot.add_area(0)
                         robot.add_blur(0)
                         robot.add_stuck_status(0)
+                        print("added trajectory")
                         robot.crop_length = self.ui.robotcroplengthbox.value()
                         self.tracker.robot_list.append(robot) #this has to include tracker.robot_list because I need to add it to that class
+                        
+                        
                         
         
                

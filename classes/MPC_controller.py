@@ -1,4 +1,6 @@
-#just MPC controller
+#just MPC controller 
+
+#WORKED
 import cv2
 import numpy as np
 import casadi as ca
@@ -8,11 +10,11 @@ from scipy.interpolate import CubicSpline
 from matplotlib import animation
 
 N = 5  # Time horizon
-f_max = 100
+f_max = 25
 a_0 = 1
 dt = 0.1
-Q = np.diag([20, 20])  # Weight matrix
-R = np.diag([10, 10])  # Penalty matrix
+Q = np.diag([30, 30])  # Weight matrix
+R = np.diag([20, 20])  # Penalty matrix
 
 
 
@@ -23,7 +25,7 @@ def dynamic_model(freq, alpha, PosX, PosY):
 
     # Discrete-time update (Euler integration)
     PosX_next = PosX + dPosX * dt
-    PosY_next = PosY + dPosY * dt
+    PosY_next = PosY + -(dPosY) * dt
     
 
     return PosX_next,  PosY_next
@@ -38,11 +40,11 @@ def generate_waypoints(start, target, M):
     y = np.linspace(start[1], target[1], M)  
 
     # Create cubic splines
-    cs_x = CubicSpline(np.linspace(0, 1, M), x)
-    cs_y = CubicSpline(np.linspace(0, 1, M), y)
+    #cs_x = CubicSpline(np.linspace(0, 1, M), x)
+    #cs_y = CubicSpline(np.linspace(0, 1, M), y)
 
-    waypoints_x = cs_x(t)
-    waypoints_y = cs_y(t)
+    waypoints_x = x
+    waypoints_y = y
 
     return np.vstack((waypoints_x, waypoints_y))
     #waypoints = scipy.optimize.curve_fit(start, target, N).T  # Shape: (2, N)
@@ -51,14 +53,19 @@ def generate_waypoints(start, target, M):
 
 
 
-def cost_func(Q, R, N, waypoints, X, u):
+def cost_func(waypoints, X, u):
     """Compute cost function to minimize tracking error to waypoints."""
+    #cost = Q||current position(t) - way point position(t+1)||^2+||u(t|t-1)||^2.R 
     cost = 0
+    
     for k in range(N):
         traj_error = X[:2, k] - waypoints[:, k]  # Position error to waypoint
-        cost += ca.mtimes([traj_error.T, Q, traj_error]) + ca.mtimes([u[:, k].T, R, u[:, k]])
+        if k ==0:
+            control_error = ca.DM.zeros(2, 1)
+        else:
+            control_error = u[:,k] - u[:,k-1]
+        cost += ca.mtimes([traj_error.T, Q, traj_error]) + ca.mtimes([control_error.T, R, control_error])
     return cost
-
 
 
 def solve_mpc(frame, X_current, X_desired):
@@ -70,7 +77,8 @@ def solve_mpc(frame, X_current, X_desired):
     u = opti.variable(2, N)  # [freq, alpha] for each step
     X = opti.variable(2, N + 1)  # [PosX,  PosY] for each step
 
-    waypoints = generate_waypoints([700,700], X_desired, N+1)
+    #waypoints = generate_waypoints([700,700], X_desired, N+1)
+    waypoints = generate_waypoints(X_current, X_desired, N+3)
    
 
     for i in range(waypoints.shape[1]):
@@ -86,8 +94,8 @@ def solve_mpc(frame, X_current, X_desired):
     # Constraints
     for i in range(N):
         # Dynamics constraints
-        PosX_next = X[0, i] + (a_0 * u[0, i] * ca.cos(u[1, i]) ) * dt
-        PosY_next = X[1, i] + (a_0 * u[0, i] * ca.sin(u[1, i]) )* dt
+        PosX_next = X[0, i] + (a_0 * u[0, i] *( ca.cos(u[1, i])) ) * dt
+        PosY_next = X[1, i] + (a_0 * u[0, i] *(- ca.sin(u[1, i])) )* dt
         
         
         #print(PosX_next, PosY_next)
@@ -108,7 +116,7 @@ def solve_mpc(frame, X_current, X_desired):
 
     # Cost function (tracking error + control effort)
   
-    cost = cost_func(Q, R, N, waypoints, X, u)
+    cost = cost_func( waypoints, X, u)
     #print("cost = ", cost)
     
     opti.minimize(cost)
@@ -125,8 +133,9 @@ def solve_mpc(frame, X_current, X_desired):
 
     # Solve optimization problem
     solution = opti.solve()
+    freq_value = round(solution.value(u[0,0]),2)
 
-    return frame, solution.value(u[0, 0]), solution.value(u[1, 0])  # Return first control input (freq, alpha)
+    return frame, freq_value, solution.value(u[1, 0])  # Return first control input (freq, alpha)
 
 
 """
